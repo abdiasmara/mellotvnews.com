@@ -1,0 +1,6 @@
+{
+  "name": "Mello TV News - Portal Media Terpercaya",
+  "description": "Portal berita resmi Mello TV News menyajikan berita terkini, siaran live, dan berita terpercaya.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
