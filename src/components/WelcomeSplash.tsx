@@ -1,14 +1,15 @@
 import React from 'react';
 import { MelloLogo } from './MelloLogo';
-import { Globe, Tv, Play, Share2, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Globe, Tv, Play, Share2, Sparkles, ArrowRight, ShieldCheck, Scale } from 'lucide-react';
 import { AppTab } from '../types';
 
 interface WelcomeSplashProps {
   onEnter: (targetTab?: AppTab) => void;
   onOpenSocials: () => void;
+  onOpenTerms?: () => void;
 }
 
-export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({ onEnter, onOpenSocials }) => {
+export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({ onEnter, onOpenSocials, onOpenTerms }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-xl overflow-y-auto">
       {/* Animated Background Gradients & Broadcast Grid */}
@@ -98,6 +99,18 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({ onEnter, onOpenSoc
             <Tv className="w-4 h-4 text-red-400" />
             <span>Multi-Platform Penyiaran</span>
           </span>
+          {onOpenTerms && (
+            <>
+              <span className="hidden sm:inline">·</span>
+              <button
+                onClick={onOpenTerms}
+                className="flex items-center gap-1 text-amber-400 hover:text-amber-300 hover:underline font-semibold"
+              >
+                <Scale className="w-3.5 h-3.5" />
+                <span>Syarat yang Dilindungi & Dilarang</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

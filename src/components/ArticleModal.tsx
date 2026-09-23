@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { NewsArticle } from '../types';
-import { X, Volume2, VolumeX, Share2, Bookmark, BookmarkCheck, Facebook, Twitter, MessageSquare, Send, Check, Copy, ExternalLink, Play } from 'lucide-react';
+import { X, Volume2, VolumeX, Share2, Bookmark, BookmarkCheck, Facebook, Twitter, MessageSquare, Send, Check, Copy, ExternalLink, Play, ShieldCheck, Scale, AlertCircle, Ban, Youtube, Instagram, MessageCircle } from 'lucide-react';
 
 interface ArticleModalProps {
   article: NewsArticle | null;
   onClose: () => void;
   isBookmarked: boolean;
   onToggleBookmark: (article: NewsArticle) => void;
+  onOpenTerms?: (tab?: 'all' | 'protected' | 'prohibited' | 'ethics' | 'comments') => void;
 }
 
 export const ArticleModal: React.FC<ArticleModalProps> = ({
@@ -14,6 +15,7 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
   onClose,
   isBookmarked,
   onToggleBookmark,
+  onOpenTerms,
 }) => {
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
@@ -218,42 +220,83 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
             </div>
           )}
 
+          {/* Copyright Protection & Content Prohibitions Box */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-slate-800 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Hak Cipta Karya Jurnalistik Dilindungi Hukum</span>
+              </div>
+              {onOpenTerms && (
+                <button
+                  onClick={() => onOpenTerms('protected')}
+                  className="text-[11px] text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 font-semibold"
+                >
+                  <Scale className="w-3 h-3" />
+                  <span>Pelajari Syarat & Ketentuan</span>
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Materi berita ini dilindungi oleh Undang-Undang Hak Cipta No. 28/2014 & UU Pers No. 40/1999. Dilarang menggandakan, menyalin sebagian atau seluruh isi berita untuk tujuan komersial tanpa izin tertulis dari <strong>Redaksi Mello TV News</strong>. Pengutipan wajar wajib menyertakan atribusi sumber: <span className="text-blue-400 font-mono">mellotvnews.com</span>.
+            </p>
+          </div>
+
           {/* Social Share Bar */}
           <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
               <Share2 className="w-4 h-4 text-amber-400" />
-              <span>Bagikan Berita Ini ke Media Sosial</span>
+              <span>Bagikan Berita Ini ke Media Sosial Resmi</span>
             </h4>
             <div className="flex flex-wrap items-center gap-2">
               <a
                 href={`https://api.whatsapp.com/send?text=${shareText}%20${articleUrl}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors shadow-sm"
               >
+                <MessageCircle className="w-3.5 h-3.5 fill-white text-emerald-600" />
                 <span>WhatsApp</span>
               </a>
               <a
                 href={`https://www.facebook.com/sharer/sharer.php?u=${articleUrl}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-colors"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-colors shadow-sm"
               >
                 <Facebook className="w-3.5 h-3.5" />
                 <span>Facebook</span>
               </a>
               <a
+                href="https://instagram.com/mellotvnews"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 text-white font-bold text-xs transition-colors shadow-sm"
+              >
+                <Instagram className="w-3.5 h-3.5" />
+                <span>Instagram</span>
+              </a>
+              <a
+                href="https://youtube.com/@mellotv-news"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition-colors shadow-sm"
+              >
+                <Youtube className="w-3.5 h-3.5" />
+                <span>YouTube</span>
+              </a>
+              <a
                 href={`https://twitter.com/intent/tweet?text=${shareText}&url=${articleUrl}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs transition-colors"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs transition-colors shadow-sm"
               >
                 <Twitter className="w-3.5 h-3.5" />
-                <span>Twitter / X</span>
+                <span>X / Twitter</span>
               </a>
               <button
                 onClick={handleCopyLink}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition-colors"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition-colors border border-slate-700"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? 'Tersalin!' : 'Salin Tautan'}</span>
@@ -262,11 +305,31 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
           </div>
 
           {/* Comment Section */}
-          <div className="pt-6 border-t border-slate-800 space-y-6">
-            <h3 className="text-lg font-bold text-white font-display flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-red-500" />
-              <span>Komentar Pembaca ({comments.length})</span>
-            </h3>
+          <div className="pt-6 border-t border-slate-800 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-lg font-bold text-white font-display flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-red-500" />
+                <span>Komentar Pembaca ({comments.length})</span>
+              </h3>
+
+              {onOpenTerms && (
+                <button
+                  onClick={() => onOpenTerms('comments')}
+                  className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-semibold"
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  <span>Tata Tertib & Larangan Komentar</span>
+                </button>
+              )}
+            </div>
+
+            {/* Comment Prohibitions Notice Bar */}
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 flex items-center gap-2.5 text-[11px] text-slate-400">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                <strong>Larangan Redaksi:</strong> Dilarang memuat ujaran kebencian, isu SARA, fitnah, pornografi, dan promosi judi online/spam. Komentar yang melanggar akan dihapus otomatis oleh sistem moderator.
+              </span>
+            </div>
 
             {/* Comment Form */}
             <form onSubmit={handleAddComment} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">

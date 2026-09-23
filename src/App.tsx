@@ -7,17 +7,42 @@ import { SocialHub } from './components/SocialHub';
 import { NewsFeed } from './components/NewsFeed';
 import { ArticleModal } from './components/ArticleModal';
 import { AdminPanel } from './components/AdminPanel';
-import { NewsArticle, AppTab, UserRole } from './types';
+import { AdminLoginModal } from './components/AdminLoginModal';
+import { TermsAndProhibitionsModal } from './components/TermsAndProhibitionsModal';
+import { FloatingSocialWidget } from './components/FloatingSocialWidget';
+import { PWAInstallButton } from './components/PWAInstallButton';
+import { NewsArticle, AppTab, UserRole, AdminUser, SocialMediaConfig } from './types';
 import { MelloLogo } from './components/MelloLogo';
-import { Shield, Sparkles, Tv, Globe, Share2, Newspaper, Heart, Radio, ExternalLink } from 'lucide-react';
+import { Shield, Sparkles, Tv, Globe, Share2, Newspaper, Heart, Radio, ExternalLink, Scale, FileText } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [userRole, setUserRole] = useState<UserRole>('public');
-  const [showWelcome, setShowWelcome] = useState<boolean>(true);
+  const [adminToken, setAdminToken] = useState<string>(() => {
+    return localStorage.getItem('mello_admin_token') || '';
+  });
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('mello_admin_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  // Articles & Ticker Data
+  const [showWelcome, setShowWelcome] = useState<boolean>(true);
+  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
+  const [termsInitialTab, setTermsInitialTab] = useState<'all' | 'protected' | 'prohibited' | 'ethics' | 'comments'>('all');
+
+  const handleOpenTerms = (tab: 'all' | 'protected' | 'prohibited' | 'ethics' | 'comments' = 'all') => {
+    setTermsInitialTab(tab);
+    setShowTermsModal(true);
+  };
+
+  // Articles, Social Config & Ticker Data
   const [articles, setArticles] = useState<NewsArticle[]>([]);
+  const [socialConfig, setSocialConfig] = useState<SocialMediaConfig | undefined>(undefined);
   const [tickerItems, setTickerItems] = useState<string[]>([
     'SELAMAT DATANG SAHABAT MELLO TV NEWS - PORTAL MEDIA TERPERCAYA',
     'Ikuti Akun Resmi Kami di Facebook @mellotvnews, Instagram @mellotvnews, TikTok @mellotvnews & YouTube @mellotv-news',
@@ -32,8 +57,33 @@ export default function App() {
     }
   });
 
-  // Admin PIN Login Modal toggle
-  const [showPinModal, setShowPinModal] = useState<boolean>(false);
+  // Verify Admin Session on load
+  useEffect(() => {
+    const verifySession = async () => {
+      if (!adminToken) return;
+      try {
+        const res = await fetch('/api/admin/verify', {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.valid && data.user) {
+            setUserRole('admin');
+            setAdminUser(data.user);
+            localStorage.setItem('mello_admin_user', JSON.stringify(data.user));
+          } else {
+            handleLogout();
+          }
+        } else {
+          handleLogout();
+        }
+      } catch {
+        // Offline or transient error - keep local state if valid
+      }
+    };
+
+    verifySession();
+  }, [adminToken]);
 
   // Fetch initial articles & tickers
   const fetchAllData = async () => {
@@ -62,6 +112,13 @@ export default function App() {
         const tickers = await tickerRes.json();
         setTickerItems(tickers);
       }
+
+      // 4. Fetch social media configuration
+      const socialRes = await fetch('/api/social-config');
+      if (socialRes.ok) {
+        const sc = await socialRes.json();
+        setSocialConfig(sc);
+      }
     } catch (err) {
       console.log('Error fetching portal data:', err);
     }
@@ -82,54 +139,145 @@ export default function App() {
     );
   };
 
-  // Admin Actions
+  // Admin Login and Logout Handlers
+  const handleLoginSuccess = (token: string, user: AdminUser) => {
+    setAdminToken(token);
+    setAdminUser(user);
+    setUserRole('admin');
+    localStorage.setItem('mello_admin_token', token);
+    localStorage.setItem('mello_admin_user', JSON.stringify(user));
+    setShowLoginModal(false);
+  };
+
+  const handleLogout = async () => {
+    if (adminToken) {
+      try {
+        await fetch('/api/admin/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${adminToken}` },
+        });
+      } catch {
+        // proceed
+      }
+    }
+    setAdminToken('');
+    setAdminUser(null);
+    setUserRole('public');
+    localStorage.removeItem('mello_admin_token');
+    localStorage.removeItem('mello_admin_user');
+  };
+
+  const handleUpdateAdminProfile = (updatedUser: AdminUser) => {
+    setAdminUser(updatedUser);
+    localStorage.setItem('mello_admin_user', JSON.stringify(updatedUser));
+  };
+
+  // Protected Admin News Actions
   const handleCreateArticle = async (articleData: Partial<NewsArticle>) => {
     const res = await fetch('/api/news', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
       body: JSON.stringify(articleData),
     });
+
+    if (res.status === 401) {
+      alert('Sesi Admin telah berakhir. Silakan login kembali.');
+      handleLogout();
+      setShowLoginModal(true);
+      return;
+    }
+
     if (res.ok) {
       await fetchAllData();
+    } else {
+      const err = await res.json();
+      throw new Error(err.error || 'Gagal membuat berita.');
     }
   };
 
   const handleUpdateArticle = async (id: string, updatedData: Partial<NewsArticle>) => {
     const res = await fetch(`/api/news/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
       body: JSON.stringify(updatedData),
     });
+
+    if (res.status === 401) {
+      alert('Sesi Admin telah berakhir. Silakan login kembali.');
+      handleLogout();
+      setShowLoginModal(true);
+      return;
+    }
+
     if (res.ok) {
       await fetchAllData();
+    } else {
+      const err = await res.json();
+      throw new Error(err.error || 'Gagal memperbarui berita.');
     }
   };
 
   const handleDeleteArticle = async (id: string) => {
     const res = await fetch(`/api/news/${id}`, {
       method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
     });
+
+    if (res.status === 401) {
+      alert('Sesi Admin telah berakhir. Silakan login kembali.');
+      handleLogout();
+      setShowLoginModal(true);
+      return;
+    }
+
     if (res.ok) {
       await fetchAllData();
+    } else {
+      const err = await res.json();
+      throw new Error(err.error || 'Gagal menghapus berita.');
     }
   };
 
   const handleSaveTicker = async (newTickers: string[]) => {
     const res = await fetch('/api/ticker', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
       body: JSON.stringify({ tickerList: newTickers }),
     });
+
+    if (res.status === 401) {
+      alert('Sesi Admin telah berakhir. Silakan login kembali.');
+      handleLogout();
+      setShowLoginModal(true);
+      return;
+    }
+
     if (res.ok) {
       setTickerItems(newTickers);
+    } else {
+      const err = await res.json();
+      throw new Error(err.error || 'Gagal menyimpan running text.');
     }
   };
 
   const handleToggleRoleClick = () => {
     if (userRole === 'admin') {
-      setUserRole('public');
+      if (confirm('Apakah Anda ingin keluar dari akun Admin Mello TV News?')) {
+        handleLogout();
+      }
     } else {
-      setShowPinModal(true);
+      setShowLoginModal(true);
     }
   };
 
@@ -146,6 +294,9 @@ export default function App() {
             setShowWelcome(false);
             setActiveTab('social');
           }}
+          onOpenTerms={() => {
+            handleOpenTerms('all');
+          }}
         />
       )}
 
@@ -154,8 +305,10 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         userRole={userRole}
+        adminUser={adminUser}
         onToggleRoleClick={handleToggleRoleClick}
         onOpenWelcome={() => setShowWelcome(true)}
+        onOpenTerms={handleOpenTerms}
       />
 
       {/* Breaking News Marquee */}
@@ -196,6 +349,9 @@ export default function App() {
               </div>
             </div>
 
+            {/* PWA App Installation Banner for Android & Windows */}
+            <PWAInstallButton variant="banner" />
+
             {/* News Feed Grid */}
             <NewsFeed
               articles={articles}
@@ -222,13 +378,18 @@ export default function App() {
         )}
 
         {/* Tab 4: Social Media Hub */}
-        {activeTab === 'social' && <SocialHub />}
+        {activeTab === 'social' && <SocialHub socialConfig={socialConfig} />}
 
         {/* Tab 5: Admin Panel */}
         {activeTab === 'admin' && (
           <AdminPanel
             userRole={userRole}
-            onLoginSuccess={() => setUserRole('admin')}
+            adminUser={adminUser}
+            adminToken={adminToken}
+            onLoginSuccess={handleLoginSuccess}
+            onLogout={handleLogout}
+            onUpdateAdminProfile={handleUpdateAdminProfile}
+            onOpenTerms={handleOpenTerms}
             articles={articles}
             onCreateArticle={handleCreateArticle}
             onUpdateArticle={handleUpdateArticle}
@@ -246,64 +407,29 @@ export default function App() {
           onClose={() => setSelectedArticle(null)}
           isBookmarked={bookmarks.includes(selectedArticle.id)}
           onToggleBookmark={handleToggleBookmark}
+          onOpenTerms={handleOpenTerms}
         />
       )}
 
-      {/* Admin Login Modal Triggered from Header */}
-      {showPinModal && userRole !== 'admin' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center space-y-4 shadow-2xl">
-            <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-              <Shield className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-bold text-white font-display">Akses Mode Admin</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Masukkan password admin untuk membuka hak akses menerbitkan berita.
-            </p>
+      {/* Dedicated Admin Login Modal with Username & Password */}
+      <AdminLoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
 
-            <input
-              type="password"
-              placeholder="Password: admin123"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const val = (e.target as HTMLInputElement).value;
-                  if (val === 'admin123' || val === '123456') {
-                    setUserRole('admin');
-                    setShowPinModal(false);
-                  } else {
-                    alert('Password Admin Salah. Gunakan admin123');
-                  }
-                }
-              }}
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white text-center font-mono focus:outline-none focus:border-amber-500"
-              autoFocus
-            />
+      {/* Comprehensive Terms & Prohibitions Modal */}
+      <TermsAndProhibitionsModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        initialTab={termsInitialTab}
+      />
 
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={() => setShowPinModal(false)}
-                className="flex-1 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold"
-              >
-                Batal
-              </button>
-              <button
-                onClick={(e) => {
-                  const input = (e.currentTarget.previousElementSibling?.previousElementSibling as HTMLInputElement);
-                  if (input && (input.value === 'admin123' || input.value === '123456')) {
-                    setUserRole('admin');
-                    setShowPinModal(false);
-                  } else {
-                    alert('Password Admin Salah. Gunakan admin123');
-                  }
-                }}
-                className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold"
-              >
-                Masuk Admin
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Floating WhatsApp & Social Launcher Widget */}
+      <FloatingSocialWidget socialConfig={socialConfig} />
+
+      {/* Floating PWA Install Launcher */}
+      <PWAInstallButton variant="floating" />
 
       {/* Footer */}
       <footer className="bg-slate-950 border-t border-slate-900 py-10 px-4 text-xs text-slate-400">
@@ -328,9 +454,59 @@ export default function App() {
             </div>
           </div>
 
+          {/* Quick Legal and Prohibitions Navigation Strip */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+            <div className="flex items-center gap-2 text-slate-200">
+              <Scale className="w-4 h-4 text-amber-400" />
+              <span className="font-semibold text-xs text-white">Ketentuan Hukum & Pedoman Penyiaran:</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <button
+                onClick={() => handleOpenTerms('protected')}
+                className="text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 font-medium"
+              >
+                <span>🛡️ Hak yang Dilindungi</span>
+              </button>
+              <span className="text-slate-700">·</span>
+              <button
+                onClick={() => handleOpenTerms('prohibited')}
+                className="text-rose-400 hover:text-rose-300 hover:underline flex items-center gap-1 font-medium"
+              >
+                <span>🚫 Larangan Konten & Hoaks</span>
+              </button>
+              <span className="text-slate-700">·</span>
+              <button
+                onClick={() => handleOpenTerms('ethics')}
+                className="text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 font-medium"
+              >
+                <span>📋 Kode Etik Jurnalistik</span>
+              </button>
+              <span className="text-slate-700">·</span>
+              <button
+                onClick={() => handleOpenTerms('comments')}
+                className="text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 font-medium"
+              >
+                <span>💬 Tata Tertib Komentar</span>
+              </button>
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-500">
             <p>© {new Date().getFullYear()} Mello TV News. Hak Cipta Dilindungi Undang-Undang.</p>
-            <p>Portal Media Terpercaya · Dipersembahkan untuk Sahabat Mello TV News</p>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => handleOpenTerms('all')}
+                className="text-amber-400 hover:underline font-semibold"
+              >
+                Syarat & Ketentuan Lengkap
+              </button>
+              <span>·</span>
+              <p className="flex items-center gap-1.5">
+                <Shield className="w-3.5 h-3.5 text-amber-500" />
+                <span>Sistem Perlindungan Akun Redaksi & Penyiaran</span>
+              </p>
+            </div>
           </div>
         </div>
       </footer>
